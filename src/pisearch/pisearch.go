@@ -39,9 +39,10 @@ type Pisearch struct {
 // name.4.idx and name.4.bin, or error if the files could not
 // be opened and memory mapped.
 func Open(name string) (pisearch *Pisearch, err error) {
-	file, err := os.Open(name + ".4.bin")
+	fname := name + ".4.bin"
+	file, err := os.Open(fname)
 	if err != nil {
-		log.Println("open of .4.bin failed")
+		log.Println("open of " + fname + " failed")
 		return nil, err
 	}
 	fi, err := file.Stat()
@@ -53,9 +54,10 @@ func Open(name string) (pisearch *Pisearch, err error) {
 
 	numdigits := fi.Size() * 2
 
-	idxfile, err := os.Open(name + ".4.idx")
+	fname = name + ".4.idx"
+	idxfile, err := os.Open(fname)
 	if err != nil {
-		log.Println("open of .4.idx failed")
+		log.Println("open of " + fname + " failed")
 		file.Close()
 		return nil, err
 	}
@@ -111,9 +113,8 @@ func (pisearch *Pisearch) digitAt(pos int) byte {
 	b := pisearch.filemap_[pos/2]
 	if (pos & 0x01) == 1 { // Second digit in a byte
 		return b & 0x0f
-	} else {
-		return b >> 4
 	}
+	return b >> 4
 }
 
 // GetDigits returns an ASCII string representation of the digits of
@@ -223,9 +224,8 @@ func (pisearch *Pisearch) Search(start int, searchkey string) (found bool, posit
 
 	if querylen <= seqThresh {
 		return pisearch.seqsearch(start, searchbytes)
-	} else {
-		return pisearch.idxsearch(start, searchbytes)
 	}
+	return pisearch.idxsearch(start, searchbytes)
 }
 
 // Summary of speed improvements not taken from the C++ version:
