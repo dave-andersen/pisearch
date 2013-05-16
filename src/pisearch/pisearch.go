@@ -204,8 +204,6 @@ func (pisearch *Pisearch) idxsearch(start int, searchkey []byte) (found bool, po
 		}
 	}
 	return false, 0
-	//fmt.Println("positions: ", positions)
-	//return pisearch.seqsearch(start, searchkey)
 }
 
 // Search returns the position at which the first instance of "searchkey"
