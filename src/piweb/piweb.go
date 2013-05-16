@@ -10,15 +10,12 @@ import (
 	"time"
 )
 
+const (
+	pifile = "pi1m"
+)
+
 type Piserver struct {
 	searcher *pisearch.Pisearch
-}
-
-func intmax(x, y int) int {
-	if x > y {
-		return x
-	}
-	return y
 }
 
 type jsonhandler func(*http.Request, map[string]interface{})
@@ -106,12 +103,17 @@ func (ps *Piserver) ServeQuery(req *http.Request, results map[string]interface{}
 		m := make(map[string]interface{})
 		m["searchKey"] = query
 		m["start"] = start_pos
-		if (start_pos > 0) { start_pos -= 1 }
+		if start_pos > 0 {
+			start_pos -= 1
+		}
 		found, pos := ps.searcher.Search(start_pos, query)
 		if found {
-			digitBeforeStart := intmax(0, pos-20)
+			digitBeforeStart := pos-20
+			if digitBeforeStart < 0 {
+				digitBeforeStart = 0
+			}
 			m["status"] = "found"
-			m["piPosition"] = pos+1 // 1 based indexing for humans
+			m["piPosition"] = pos + 1 // 1 based indexing for humans
 			m["digitsBefore"] = ps.searcher.GetDigits(digitBeforeStart, int(pos-digitBeforeStart))
 			m["digitsAfter"] = ps.searcher.GetDigits(pos+len(query), 20)
 		} else {
@@ -125,7 +127,6 @@ func (ps *Piserver) ServeQuery(req *http.Request, results map[string]interface{}
 }
 
 func main() {
-	pifile := "/home/dga/public_html/pi/pi200"
 	pisearch, err := pisearch.Open(pifile)
 	if err != nil {
 		log.Fatal("Could not open ", pifile, ": ", err)

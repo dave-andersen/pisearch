@@ -15,8 +15,8 @@ if you want to play with them.  You will need some kind of file of
 Pi digits in order to run the tests.
 
 To build:
-	go build cmd      (command-line search interface)
-	go build piweb    (web-based/json search code)
-	go build pipack   (utility to pack and unpack BCD)
+	go install cmd      (command-line search interface)
+	go install piweb    (web-based/json search code)
+	go install pipack   (utility to pack and unpack BCD)
 
 	go test pisearch   (requires a pi file - see pisearch_test.go)
