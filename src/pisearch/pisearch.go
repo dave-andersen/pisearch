@@ -39,9 +39,10 @@ type Pisearch struct {
 // name.4.idx and name.4.bin, or error if the files could not
 // be opened and memory mapped.
 func Open(name string) (pisearch *Pisearch, err error) {
-	file, err := os.Open(name + ".4.bin")
+	fname := name + ".4.bin"
+	file, err := os.Open(fname)
 	if err != nil {
-		log.Println("open of .4.bin failed")
+		log.Println("open of " + fname + " failed")
 		return nil, err
 	}
 	fi, err := file.Stat()
@@ -53,9 +54,10 @@ func Open(name string) (pisearch *Pisearch, err error) {
 
 	numdigits := fi.Size() * 2
 
-	idxfile, err := os.Open(name + ".4.idx")
+	fname = name + ".4.idx"
+	idxfile, err := os.Open(fname)
 	if err != nil {
-		log.Println("open of .4.idx failed")
+		log.Println("open of " + fname + " failed")
 		file.Close()
 		return nil, err
 	}
