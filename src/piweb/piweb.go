@@ -56,7 +56,7 @@ func (ps *Piserver) ServeDigits(req *http.Request, results map[string]interface{
 		results["error"] = "Missing query parameters"
 		return
 	}
-	start64, err := strconv.ParseInt(startstr[0], 10, 32)
+	start64, err := strconv.Atoi(startstr[0])
 	if err != nil {
 		results["error"] = "Bad start position"
 		return
@@ -93,7 +93,7 @@ func (ps *Piserver) ServeQuery(req *http.Request, results map[string]interface{}
 	start_pos := int(0)
 	start, has_start := req.Form["start"]
 	if has_start {
-		sp, err := strconv.ParseInt(start[0], 10, 64)
+		sp, err := strconv.Atoi(start[0])
 		if err != nil {
 			results["status"] = STATUS_FAILED
 			results["error"] = "Bad start position"
