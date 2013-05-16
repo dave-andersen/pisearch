@@ -14,6 +14,12 @@ const (
 	pifile = "pi1m"
 )
 
+// Return codes for JSON.  Shouldn't we use a standard, though?
+const (
+	STATUS_FAILED = "FAILED"
+	STATUS_SUCCESS = "success"
+)
+
 type Piserver struct {
 	searcher *pisearch.Pisearch
 }
@@ -23,9 +29,8 @@ type jsonhandler func(*http.Request, map[string]interface{})
 func (handler jsonhandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	startTime := time.Now()
 	results := make(map[string]interface{})
-	err := req.ParseForm()
-	if err != nil {
-		results["status"] = "FAILED"
+	if err := req.ParseForm(); err != nil {
+		results["status"] = STATUS_FAILED
 		results["error"] = "Bad form"
 	} else {
 		handler(req, results)
@@ -35,7 +40,7 @@ func (handler jsonhandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	results["elapsedTime"] = time.Now().Sub(startTime)
 	b, err := json.MarshalIndent(results, "", "  ")
 	if err != nil {
-		io.WriteString(w, "Fucked, can't even marshal the output for you.\n")
+		io.WriteString(w, "Internal error - can't marshal output\n")
 		return
 	}
 	if b != nil {
@@ -44,7 +49,7 @@ func (handler jsonhandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (ps *Piserver) ServeDigits(req *http.Request, results map[string]interface{}) {
-	results["status"] = "FAILED"
+	results["status"] = STATUS_FAILED
 	startstr, has_start := req.Form["start"]
 	countstr, has_count := req.Form["count"]
 	if !has_start || !has_count {
@@ -62,7 +67,7 @@ func (ps *Piserver) ServeDigits(req *http.Request, results map[string]interface{
 		results["error"] = "Bad count"
 		return
 	}
-	results["status"] = "success"
+	results["status"] = STATUS_SUCCESS
 	results["start"] = start
 	results["count"] = count
 	results["digits"] = ps.searcher.GetDigits(start, count)
@@ -73,32 +78,31 @@ func (ps *Piserver) ServeQuery(req *http.Request, results map[string]interface{}
 	// results["results"] = [ [result1], [result2], ... ]
 	results["status"] = "OK"
 	q, has_q := req.Form["q"]
-	start, has_start := req.Form["start"]
 	if !has_q {
-		results["status"] = "FAILED"
+		results["status"] = STATUS_FAILED
 		results["error"] = "Missing query"
 		return
 	}
 
 	if len(q) > 20 {
-		results["status"] = "FAILED"
+		results["status"] = STATUS_FAILED
 		results["error"] = "Too many queries"
 		return
 	}
 
 	start_pos := int(0)
+	start, has_start := req.Form["start"]
 	if has_start {
 		sp, err := strconv.ParseInt(start[0], 10, 64)
-		start_pos = int(sp)
 		if err != nil {
-			results["status"] = "FAILED"
+			results["status"] = STATUS_FAILED
 			results["error"] = "Bad start position"
 			return
 		}
+		start_pos = int(sp)
 	}
 	resarray := make([]map[string]interface{}, len(q))
 	results["results"] = resarray
-	startTime := time.Now()
 	for idx, query := range q {
 		m := make(map[string]interface{})
 		m["searchKey"] = query
@@ -119,9 +123,6 @@ func (ps *Piserver) ServeQuery(req *http.Request, results map[string]interface{}
 		} else {
 			m["status"] = "notfound"
 		}
-		endTime := time.Now()
-		m["lookupTime"] = endTime.Sub(startTime)
-		startTime = endTime
 		resarray[idx] = m
 	}
 }
