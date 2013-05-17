@@ -35,34 +35,32 @@ type Pisearch struct {
 	idxmap_   []byte
 }
 
+// Convenience function to help make Open more clear
+func openAndStat(name string) (file *os.File, fi os.FileInfo, err error) {
+	if file, err = os.Open(name); err != nil {
+		log.Println("open of", name, "failed")
+		return 
+	}
+	if fi, err = file.Stat(); err != nil {
+		file.Close()
+		log.Println("stat of", name, "failed")
+	}
+	return
+}
+
 // Open returns a pisearch object that references the two files
 // name.4.idx and name.4.bin, or error if the files could not
 // be opened and memory mapped.
 func Open(name string) (pisearch *Pisearch, err error) {
-	file, err := os.Open(name + ".4.bin")
+	file, fi, err := openAndStat(name + ".4.bin")
 	if err != nil {
-		log.Println("open of .4.bin failed")
-		return nil, err
-	}
-	fi, err := file.Stat()
-	if err != nil {
-		log.Println("stat failed")
-		file.Close()
 		return nil, err
 	}
 
 	numdigits := fi.Size() * 2
 
-	idxfile, err := os.Open(name + ".4.idx")
+	idxfile, idxfi, err := openAndStat(name+".4.idx")
 	if err != nil {
-		log.Println("open of .4.idx failed")
-		file.Close()
-		return nil, err
-	}
-	idxfi, err := idxfile.Stat()
-	if err != nil {
-		log.Println("stat of idx failed")
-		idxfile.Close()
 		file.Close()
 		return nil, err
 	}

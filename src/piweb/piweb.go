@@ -113,9 +113,7 @@ func (ps *Piserver) ServeQuery(req *http.Request, results map[string]interface{}
 	resarray := make([]SearchResponse, len(q))
 	results["results"] = resarray
 	for idx, query := range q {
-		var r SearchResponse
-		r.SearchKey = query
-		r.Start = start_pos
+		r := SearchResponse{SearchKey: query, Start: start_pos}
 		if start_pos > 0 {
 			start_pos -= 1
 		}
