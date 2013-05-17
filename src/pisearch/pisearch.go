@@ -109,9 +109,8 @@ func (pisearch *Pisearch) digitAt(pos int) byte {
 	b := pisearch.filemap_[pos/2]
 	if (pos & 0x01) == 1 { // Second digit in a byte
 		return b & 0x0f
-	} else {
-		return b >> 4
 	}
+	return b >> 4
 }
 
 // GetDigits returns an ASCII string representation of the digits of
@@ -221,9 +220,8 @@ func (pisearch *Pisearch) Search(start int, searchkey string) (found bool, posit
 
 	if querylen <= seqThresh {
 		return pisearch.seqsearch(start, searchbytes)
-	} else {
-		return pisearch.idxsearch(start, searchbytes)
 	}
+	return pisearch.idxsearch(start, searchbytes)
 }
 
 // Summary of speed improvements not taken from the C++ version:
