@@ -16,8 +16,8 @@ I've put a copy of pi1m.4.bin and pi1m.4.idx at:
 if you want to play with them.  You will need some kind of file of
 Pi digits in `src/pisearch` in order to run the tests.
 
-The search code is in src/pisearch.  It's had more thought put into
-it than the quick hack of a web interface.  Use at your own risk.
+The search code is in `src/pisearch`.  It's had more thought put into
+it than the quick hack of a web interface in `src/piweb`.  Use at your own risk.  The json exported by piweb is still changing a lot as I work on the javascript/html front-end.
 
 # Building #
 
