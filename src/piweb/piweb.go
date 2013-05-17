@@ -90,7 +90,7 @@ func (ps *Piserver) ServeQuery(req *http.Request, results map[string]interface{}
 		return
 	}
 
-	start_pos := int(0)
+	start_pos := 0
 	start, has_start := req.Form["start"]
 	if has_start {
 		sp, err := strconv.Atoi(start[0])
@@ -118,7 +118,7 @@ func (ps *Piserver) ServeQuery(req *http.Request, results map[string]interface{}
 			}
 			m["status"] = "found"
 			m["piPosition"] = pos + 1 // 1 based indexing for humans
-			m["digitsBefore"] = ps.searcher.GetDigits(digitBeforeStart, int(pos-digitBeforeStart))
+			m["digitsBefore"] = ps.searcher.GetDigits(digitBeforeStart, pos-digitBeforeStart)
 			m["digitsAfter"] = ps.searcher.GetDigits(pos+len(query), 20)
 		} else {
 			m["status"] = "notfound"
