@@ -16,9 +16,18 @@ const (
 
 // Return codes for JSON.  Shouldn't we use a standard, though?
 const (
-	STATUS_FAILED = "FAILED"
+	STATUS_FAILED  = "FAILED"
 	STATUS_SUCCESS = "success"
 )
+
+type SearchResponse struct {
+	SearchKey    string `json:"sk"`
+	Start        int    `json:"st"`
+	Status       string `json:"status"`
+	Position     int    `json:"p":`
+	DigitsBefore string `json:"db"`
+	DigitsAfter  string `json:"da"`
+}
 
 type Piserver struct {
 	searcher *pisearch.Pisearch
@@ -101,29 +110,29 @@ func (ps *Piserver) ServeQuery(req *http.Request, results map[string]interface{}
 		}
 		start_pos = int(sp)
 	}
-	resarray := make([]map[string]interface{}, len(q))
+	resarray := make([]SearchResponse, len(q))
 	results["results"] = resarray
 	for idx, query := range q {
-		m := make(map[string]interface{})
-		m["searchKey"] = query
-		m["start"] = start_pos
+		var r SearchResponse
+		r.SearchKey = query
+		r.Start = start_pos
 		if start_pos > 0 {
 			start_pos -= 1
 		}
 		found, pos := ps.searcher.Search(start_pos, query)
 		if found {
-			digitBeforeStart := pos-20
+			digitBeforeStart := pos - 20
 			if digitBeforeStart < 0 {
 				digitBeforeStart = 0
 			}
-			m["status"] = "found"
-			m["piPosition"] = pos + 1 // 1 based indexing for humans
-			m["digitsBefore"] = ps.searcher.GetDigits(digitBeforeStart, pos-digitBeforeStart)
-			m["digitsAfter"] = ps.searcher.GetDigits(pos+len(query), 20)
+			r.Status = "found"
+			r.Position = pos + 1 // 1 based indexing for humans
+			r.DigitsBefore = ps.searcher.GetDigits(digitBeforeStart, pos-digitBeforeStart)
+			r.DigitsAfter = ps.searcher.GetDigits(pos+len(query), 20)
 		} else {
-			m["status"] = "notfound"
+			r.Status = "notfound"
 		}
-		resarray[idx] = m
+		resarray[idx] = r
 	}
 }
 
