@@ -21,7 +21,7 @@ const (
 )
 
 type SearchResponse struct {
-	SearchKey    string `json:"sk"`
+	SearchKey    string `json:"k"`
 	Start        int    `json:"st"`
 	Status       string `json:"status"`
 	Position     int    `json:"p":`
@@ -47,7 +47,8 @@ func (handler jsonhandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	w.Header().Set("Content-Type", "text/javascript")
 	results["elapsedTime"] = time.Now().Sub(startTime)
-	b, err := json.MarshalIndent(results, "", "  ")
+	//b, err := json.MarshalIndent(results, "", "  ")
+	b, err := json.Marshal(results)
 	if err != nil {
 		io.WriteString(w, "Internal error - can't marshal output\n")
 		return
@@ -100,7 +101,7 @@ func (ps *Piserver) ServeQuery(req *http.Request, results map[string]interface{}
 	}
 
 	start_pos := 0
-	start, has_start := req.Form["start"]
+	start, has_start := req.Form["qs"]
 	if has_start {
 		sp, err := strconv.Atoi(start[0])
 		if err != nil {
