@@ -116,10 +116,10 @@ func (pisearch *Pisearch) digitAt(pos int) byte {
 // GetDigits returns an ASCII string representation of the digits of
 // pi from position start to min(start+length, end of pi file).
 func (pisearch *Pisearch) GetDigits(start int, length int) (digits string) {
-	end := start + length
 	if start >= pisearch.numDigits {
 		return ""
 	}
+	end := start + length
 	if end >= pisearch.numDigits {
 		end = pisearch.numDigits - 1
 	}
