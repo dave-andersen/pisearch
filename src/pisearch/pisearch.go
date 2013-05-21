@@ -11,7 +11,7 @@
 // for the BCD digits and the suffix array index, respectively.
 //
 // Using this code typically operates by calling Open,
-// performing a sequence of Search and GetGidigits operations,
+// performing a sequence of Search and GetDigits operations,
 // and then calling Close.
 //
 package pisearch
