@@ -36,7 +36,7 @@ type Pisearch struct {
 }
 
 // Convenience function to help make Open more clear
-func openAndStat(name string) (file *os.File, fi os.FileInfo, err error) {
+func openAndMap(name string) (file *os.File, fi os.FileInfo, mapped []byte, err error) {
 	if file, err = os.Open(name); err != nil {
 		log.Println("open of", name, "failed")
 		return 
@@ -44,6 +44,12 @@ func openAndStat(name string) (file *os.File, fi os.FileInfo, err error) {
 	if fi, err = file.Stat(); err != nil {
 		file.Close()
 		log.Println("stat of", name, "failed")
+		return
+	}
+	mapped, err = syscall.Mmap(int(file.Fd()), 0, int(fi.Size()), syscall.PROT_READ, syscall.MAP_PRIVATE)
+	if err != nil {
+		file.Close()
+		log.Println("mmap of ", name, "failed:", err)
 	}
 	return
 }
@@ -52,33 +58,17 @@ func openAndStat(name string) (file *os.File, fi os.FileInfo, err error) {
 // name.4.idx and name.4.bin, or error if the files could not
 // be opened and memory mapped.
 func Open(name string) (pisearch *Pisearch, err error) {
-	file, fi, err := openAndStat(name + ".4.bin")
+	file, fi, filemap, err := openAndMap(name + ".4.bin")
 	if err != nil {
 		return nil, err
 	}
 
 	numdigits := fi.Size() * 2
 
-	idxfile, idxfi, err := openAndStat(name+".4.idx")
+	idxfile, _, idxmap, err := openAndMap(name+".4.idx")
 	if err != nil {
-		file.Close()
-		return nil, err
-	}
-
-	filemap, err := syscall.Mmap(int(file.Fd()), 0, int(fi.Size()), syscall.PROT_READ, syscall.MAP_PRIVATE)
-	if err != nil {
-		log.Println("mmap of file failed")
-		file.Close()
-		idxfile.Close()
-		return nil, err
-	}
-
-	idxmap, err := syscall.Mmap(int(idxfile.Fd()), 0, int(idxfi.Size()), syscall.PROT_READ, syscall.MAP_PRIVATE)
-	if err != nil {
-		log.Println("mmap of idx file failed")
 		syscall.Munmap(filemap)
 		file.Close()
-		idxfile.Close()
 		return nil, err
 	}
 
