@@ -17,11 +17,11 @@
 package pisearch
 
 import (
+	"encoding/binary"
 	"log"
 	"os"
 	"sort"
 	"syscall"
-	"encoding/binary"
 )
 
 const (
@@ -40,7 +40,7 @@ type Pisearch struct {
 func openAndMap(name string) (file *os.File, fi os.FileInfo, mapped []byte, err error) {
 	if file, err = os.Open(name); err != nil {
 		log.Println("open of", name, "failed")
-		return 
+		return
 	}
 	if fi, err = file.Stat(); err != nil {
 		file.Close()
@@ -66,7 +66,7 @@ func Open(name string) (*Pisearch, error) {
 
 	numdigits := fi.Size() * 2
 
-	idxfile, _, idxmap, err := openAndMap(name+".4.idx")
+	idxfile, _, idxmap, err := openAndMap(name + ".4.idx")
 	if err != nil {
 		syscall.Munmap(filemap)
 		file.Close()
@@ -163,7 +163,7 @@ func (p *Pisearch) compare(start int, searchkey []byte) int {
 
 func (p *Pisearch) idxAt(pos int) int {
 	i := pos * 4
-	return int(binary.LittleEndian.Uint32(p.idxmap_[i:i+4]))
+	return int(binary.LittleEndian.Uint32(p.idxmap_[i : i+4]))
 }
 
 func (p *Pisearch) idxsearch(start int, searchkey []byte) (found bool, position int, nMatches int) {
