@@ -21,6 +21,7 @@ import (
 	"os"
 	"sort"
 	"syscall"
+	"encoding/binary"
 )
 
 const (
@@ -57,7 +58,7 @@ func openAndMap(name string) (file *os.File, fi os.FileInfo, mapped []byte, err 
 // Open returns a pisearch object that references the two files
 // name.4.idx and name.4.bin, or error if the files could not
 // be opened and memory mapped.
-func Open(name string) (pisearch *Pisearch, err error) {
+func Open(name string) (*Pisearch, error) {
 	file, fi, filemap, err := openAndMap(name + ".4.bin")
 	if err != nil {
 		return nil, err
@@ -77,26 +78,26 @@ func Open(name string) (pisearch *Pisearch, err error) {
 
 // Close closes the pisearch object.  Note:  This code is not thread-safe.
 // The caller must guarantee that no other threads are accessing the object.
-func (pisearch *Pisearch) Close() {
+func (p *Pisearch) Close() {
 	// I'm writing the code this way
 	// as a reminder to my future-self that, if you really want
 	// to have threads playing willy-nilly, you'll need to guard
 	// filemap_ and idxmap_.
-	pisearch.numDigits = 0
-	tmp := pisearch.filemap_
-	pisearch.filemap_ = nil
+	p.numDigits = 0
+	tmp := p.filemap_
+	p.filemap_ = nil
 	_ = syscall.Munmap(tmp)
-	pisearch.pifile_.Close()
-	tmp = pisearch.idxmap_
-	pisearch.idxmap_ = nil
+	p.pifile_.Close()
+	tmp = p.idxmap_
+	p.idxmap_ = nil
 	_ = syscall.Munmap(tmp)
-	pisearch.idxfile_.Close()
+	p.idxfile_.Close()
 }
 
 // Return the digit at position p.  Requires that pos be contained
 // within the file or may cause a program crash.
-func (pisearch *Pisearch) digitAt(pos int) byte {
-	b := pisearch.filemap_[pos/2]
+func (p *Pisearch) digitAt(pos int) byte {
+	b := p.filemap_[pos/2]
 	if (pos & 0x01) == 1 { // Second digit in a byte
 		return b & 0x0f
 	}
@@ -105,37 +106,36 @@ func (pisearch *Pisearch) digitAt(pos int) byte {
 
 // GetDigits returns an ASCII string representation of the digits of
 // pi from position start to min(start+length, end of pi file).
-func (pisearch *Pisearch) GetDigits(start int, length int) (digits string) {
-	if start >= pisearch.numDigits {
+func (p *Pisearch) GetDigits(start int, length int) (digits string) {
+	if start >= p.numDigits {
 		return ""
 	}
 	end := start + length
-	if end >= pisearch.numDigits {
-		end = pisearch.numDigits - 1
+	if end >= p.numDigits {
+		end = p.numDigits - 1
 	}
 	outlen := end - start
 	res := make([]uint8, outlen)
-	// XXX SPEED:  This can be optimized in bulk instead of using digitAt
 	for i := 0; i < outlen; i++ {
-		res[i] = pisearch.digitAt(start+i) + '0'
+		res[i] = p.digitAt(start+i) + '0'
 	}
 	return string(res)
 }
 
-func (pisearch *Pisearch) seqsearch(start int, searchkey []byte) (found bool, position int) {
-	maxPos := pisearch.numDigits - len(searchkey)
+func (p *Pisearch) seqsearch(start int, searchkey []byte) (found bool, position int, nMatches int) {
+	maxPos := p.numDigits - len(searchkey)
 	for position = start; position < maxPos; position++ {
 		// XXX SPEED: can optimize using the tricks in the C++ version.
 		// For now, this first digitAt check avoids most of the safety
 		// checks in compare at relatively low cost.
-		if pisearch.digitAt(position) == searchkey[0] {
-			if pisearch.compare(position, searchkey) == 0 {
-				return true, position
+		if p.digitAt(position) == searchkey[0] {
+			if p.compare(position, searchkey) == 0 {
+				return true, position, 0
 			}
 		}
 	}
 	// End of Pi
-	return false, 0
+	return false, 0, 0
 }
 
 /* Returns -1 if pi[start] < searchkey;
@@ -143,15 +143,15 @@ func (pisearch *Pisearch) seqsearch(start int, searchkey []byte) (found bool, po
  *          1 if >
  */
 
-func (pisearch *Pisearch) compare(start int, searchkey []byte) int {
+func (p *Pisearch) compare(start int, searchkey []byte) int {
 	skl := len(searchkey)
 	def := 0
-	if (skl + start) >= pisearch.numDigits {
-		skl = pisearch.numDigits - start
+	if (skl + start) >= p.numDigits {
+		skl = p.numDigits - start
 		def = -1
 	}
 	for i := 0; i < skl; i++ {
-		da := pisearch.digitAt(start + i)
+		da := p.digitAt(start + i)
 		if da < searchkey[i] {
 			return -1
 		} else if da > searchkey[i] {
@@ -161,36 +161,35 @@ func (pisearch *Pisearch) compare(start int, searchkey []byte) int {
 	return def
 }
 
-func (pisearch *Pisearch) idxAt(pos int) int {
+func (p *Pisearch) idxAt(pos int) int {
 	i := pos * 4
-	return int(pisearch.idxmap_[i]) | (int(pisearch.idxmap_[i+1]) << 8) | (int(pisearch.idxmap_[i+2]) << 16) | (int(pisearch.idxmap_[i+3]) << 24)
+	return int(binary.LittleEndian.Uint32(p.idxmap_[i:i+4]))
 }
 
-func (pisearch *Pisearch) idxsearch(start int, searchkey []byte) (found bool, position int) {
-	i := sort.Search(pisearch.numDigits, func(i int) bool {
-		return pisearch.compare(pisearch.idxAt(i), searchkey) >= 0
+func (p *Pisearch) idxsearch(start int, searchkey []byte) (found bool, position int, nMatches int) {
+	i := sort.Search(p.numDigits, func(i int) bool {
+		return p.compare(p.idxAt(i), searchkey) >= 0
 	})
-	j := i + sort.Search(pisearch.numDigits-i, func(j int) bool {
-		return pisearch.compare(pisearch.idxAt(j+i), searchkey) != 0
+	j := i + sort.Search(p.numDigits-i, func(j int) bool {
+		return p.compare(p.idxAt(j+i), searchkey) != 0
 	})
-	//fmt.Println("Compare got i: ", i, "j", j)
-	//fmt.Println("Digits there: ", pisearch.GetDigits(pisearch.idxAt(i), len(searchkey)))
 
-	nMatches := (j - i)
-	var positions []int
-	for ; i < j; i++ {
-		positions = append(positions, pisearch.idxAt(i))
+	nMatches = (j - i)
+	positions := make([]int, nMatches)
+	for x := 0; i < j; i++ {
+		positions[x] = p.idxAt(i)
+		x++
 	}
 	if nMatches > 1 {
 		sort.Ints(positions)
 	}
 
-	for i := 0; i < nMatches; i++ {
-		if positions[i] >= start {
-			return true, positions[i]
+	for _, pos := range positions {
+		if pos >= start {
+			return true, pos, nMatches
 		}
 	}
-	return false, 0
+	return false, 0, 0
 }
 
 // Search returns the position at which the first instance of "searchkey"
@@ -198,10 +197,11 @@ func (pisearch *Pisearch) idxsearch(start int, searchkey []byte) (found bool, po
 // Pi (i.e., to search from the beginning, start should be zero).  If the
 // key is not found, returns found=false.  This function dispatches
 // to sequential and indexed search based upon the setting of seqThresh.
-func (pisearch *Pisearch) Search(start int, searchkey string) (found bool, position int) {
+// nMatches will be non-zero if the index was used, or zero otherwise.
+func (p *Pisearch) Search(start int, searchkey string) (found bool, position int, nMatches int) {
 	querylen := len(searchkey)
 	if querylen == 0 {
-		return false, 0
+		return false, 0, 0
 	}
 	searchbytes := make([]byte, len(searchkey))
 	for i := 0; i < len(searchkey); i++ {
@@ -209,9 +209,9 @@ func (pisearch *Pisearch) Search(start int, searchkey string) (found bool, posit
 	}
 
 	if querylen <= seqThresh {
-		return pisearch.seqsearch(start, searchbytes)
+		return p.seqsearch(start, searchbytes)
 	}
-	return pisearch.idxsearch(start, searchbytes)
+	return p.idxsearch(start, searchbytes)
 }
 
 // Summary of speed improvements not taken from the C++ version:
