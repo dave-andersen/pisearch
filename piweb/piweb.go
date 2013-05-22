@@ -5,7 +5,7 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"pisearch"
+	"github.com/dave-andersen/pisearch/pisearch"
 	"strconv"
 	"time"
 )
@@ -118,7 +118,7 @@ func (ps *Piserver) ServeQuery(req *http.Request, results map[string]interface{}
 		if start_pos > 0 {
 			start_pos -= 1
 		}
-		found, pos := ps.searcher.Search(start_pos, query)
+		found, pos, _ := ps.searcher.Search(start_pos, query)
 		if found {
 			digitBeforeStart := pos - 20
 			if digitBeforeStart < 0 {

@@ -138,6 +138,18 @@ func (p *Pisearch) seqsearch(start int, searchkey []byte) (found bool, position 
 	return false, 0, 0
 }
 
+// Only for search keys of length 1...
+func (p *Pisearch) seqsearch1(start int, searchkey []byte) (found bool, position int, nMatches int) {
+	maxPos := p.numDigits - 1
+	for position = start; position < maxPos; position++ {
+		if p.digitAt(position) == searchkey[0] {
+			return true, position, 0
+		}
+	}
+	// End of Pi
+	return false, 0, 0
+}
+
 /* Returns -1 if pi[start] < searchkey;
  *          0 if equal
  *          1 if >
@@ -208,7 +220,9 @@ func (p *Pisearch) Search(start int, searchkey string) (found bool, position int
 		searchbytes[i] = searchkey[i] - '0'
 	}
 
-	if querylen <= seqThresh {
+	if querylen == 1 {
+		return p.seqsearch1(start, searchbytes)
+	} else if querylen <= seqThresh {
 		return p.seqsearch(start, searchbytes)
 	}
 	return p.idxsearch(start, searchbytes)

@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	"pisearch"
+	"github.com/dave-andersen/pisearch/pisearch"
 	"strconv"
 	"fmt"
 	"log"
@@ -23,7 +23,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Could not open pi:", err)
 	}
-	found, pos := ps.Search(startpos, searchstr)
+	found, pos, _ := ps.Search(startpos, searchstr)
 	fmt.Println("Found? : ", found)
 	fmt.Println("Pos? : ", pos)
 	ps.Close()
