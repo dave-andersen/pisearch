@@ -23,11 +23,24 @@ it than the quick hack of a web interface in `src/piweb`.  Use at your own risk.
 
 	cd pisearch
         export GOPATH=`/bin/pwd`
-	go install cmd      (command-line search interface)
+	go install pi       (command-line search interface)
 	go install piweb    (web-based/json search code)
 	go install pipack   (utility to pack and unpack BCD)
 
 	go test pisearch   (requires a pi file - see pisearch_test.go)
 
+Optionally:
+
+	go install pigen    (generate pi using the Chudnovsky algorithm)
+
+pigen depends on an external package that you must install using go get:
+
+	go get github.com/cznic/mathutil
+
 Of course, you can also check out the pi search code into a subdirectory
-of your GOPATH, adjusting things as needed for your setup.
+of your GOPATH, adjusting things as needed for your setup.  To verify that
+you've got things running, try some commands such as:
+
+	pi search 1415
+	pi count 99999
+
