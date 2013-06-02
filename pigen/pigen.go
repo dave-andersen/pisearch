@@ -1,11 +1,16 @@
-package main
-
-// This is a Go translation of Nick Craig-Wood's Python implementation
+// pigen generates digits of Pi using
+// a Go translation of Nick Craig-Wood's Python implementation
 // of fixedpoint Pi computation using the binary split Chudnovsky algorithm.
 // There are faster ways to compute Pi - grab the GMP Pi demo program
 // if you're serious about it.
 // For a better explanation of the algorithm and cleaner code,
 // see the original:  http://www.craig-wood.com/nick/articles/pi-chudnovsky/
+//
+// I've validated the output of this up to 1 million digits.  YMMV.
+// Takes 130 seconds to produce 1m digits on a 2012 Macbook Pro using
+// go1.1.
+//
+package main
 
 import (
 	"flag"
