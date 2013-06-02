@@ -29,11 +29,11 @@ const (
 )
 
 type Pisearch struct {
-	pifile_   *os.File
-	filemap_  []byte
+	piFile    *os.File
+	piMap     []byte
 	numDigits int
-	idxfile_  *os.File
-	idxmap_   []byte
+	idxFile   *os.File
+	idxMap    []byte
 }
 
 // Convenience function to help make Open more clear
@@ -82,22 +82,22 @@ func (p *Pisearch) Close() {
 	// I'm writing the code this way
 	// as a reminder to my future-self that, if you really want
 	// to have threads playing willy-nilly, you'll need to guard
-	// filemap_ and idxmap_.
+	// piMap and idxMap.
 	p.numDigits = 0
-	tmp := p.filemap_
-	p.filemap_ = nil
+	tmp := p.piMap
+	p.piMap = nil
 	_ = syscall.Munmap(tmp)
-	p.pifile_.Close()
-	tmp = p.idxmap_
-	p.idxmap_ = nil
+	p.piFile.Close()
+	tmp = p.idxMap
+	p.idxMap = nil
 	_ = syscall.Munmap(tmp)
-	p.idxfile_.Close()
+	p.idxFile.Close()
 }
 
 // Return the digit at position p.  Requires that pos be contained
 // within the file or may cause a program crash.
 func (p *Pisearch) digitAt(pos int) byte {
-	b := p.filemap_[pos/2]
+	b := p.piMap[pos/2]
 	if (pos & 0x01) == 1 { // Second digit in a byte
 		return b & 0x0f
 	}
@@ -124,11 +124,16 @@ func (p *Pisearch) GetDigits(start int, length int) (digits string) {
 
 func (p *Pisearch) seqsearch(start int, searchkey []byte) (found bool, position int, nMatches int) {
 	maxPos := p.numDigits - len(searchkey)
+	doub := (searchkey[0] << 4) | searchkey[1]
 	for position = start; position < maxPos; position++ {
-		// XXX SPEED: can optimize using the tricks in the C++ version.
-		// For now, this first digitAt check avoids most of the safety
-		// checks in compare at relatively low cost.
-		if p.digitAt(position) == searchkey[0] {
+		b := p.piMap[position/2]
+		cmp := false
+		if (position & 0x01) == 0 { // Second digit in a byte
+			cmp = (b == doub)
+		} else {
+			cmp = ((b & 0x0f) == searchkey[0])
+		}
+		if cmp {
 			if p.compare(position, searchkey) == 0 {
 				return true, position, 0
 			}
@@ -175,22 +180,37 @@ func (p *Pisearch) compare(start int, searchkey []byte) int {
 
 func (p *Pisearch) idxAt(pos int) int {
 	i := pos * 4
-	return int(binary.LittleEndian.Uint32(p.idxmap_[i : i+4]))
+	return int(binary.LittleEndian.Uint32(p.idxMap[i : i+4]))
+}
+
+func (p *Pisearch) idxrange(searchkey []byte) (start, end int) {
+	start = sort.Search(p.numDigits, func(i int) bool {
+		return p.compare(p.idxAt(i), searchkey) >= 0
+	})
+	end = start + sort.Search(p.numDigits-start, func(j int) bool {
+		return p.compare(p.idxAt(j+start), searchkey) != 0
+	})
+	return
+}
+
+func (p *Pisearch) countByteKey(searchbytes []byte) int {
+	start, end := p.idxrange(searchbytes)
+	return end - start
+}
+
+// Count returns a count of the number of times the specified
+// searchkey is found in the pi file.
+func (p *Pisearch) Count(searchkey string) int {
+	return p.countByteKey(searchKeyToBytes(searchkey))
 }
 
 func (p *Pisearch) idxsearch(start int, searchkey []byte) (found bool, position int, nMatches int) {
-	i := sort.Search(p.numDigits, func(i int) bool {
-		return p.compare(p.idxAt(i), searchkey) >= 0
-	})
-	j := i + sort.Search(p.numDigits-i, func(j int) bool {
-		return p.compare(p.idxAt(j+i), searchkey) != 0
-	})
 
-	nMatches = (j - i)
+	start, end := p.idxrange(searchkey)
+	nMatches = (end - start)
 	positions := make([]int, nMatches)
-	for x := 0; i < j; i++ {
-		positions[x] = p.idxAt(i)
-		x++
+	for i := 0; i < nMatches; i++ {
+		positions[i] = p.idxAt(i + start)
 	}
 	if nMatches > 1 {
 		sort.Ints(positions)
@@ -204,6 +224,14 @@ func (p *Pisearch) idxsearch(start int, searchkey []byte) (found bool, position 
 	return false, 0, 0
 }
 
+func searchKeyToBytes(key string) []byte {
+	searchbytes := make([]byte, len(key))
+	for i := 0; i < len(key); i++ {
+		searchbytes[i] = key[i] - '0'
+	}
+	return searchbytes
+}
+
 // Search returns the position at which the first instance of "searchkey"
 // occurs after position "start".  Start is a zero-based offset within
 // Pi (i.e., to search from the beginning, start should be zero).  If the
@@ -215,24 +243,25 @@ func (p *Pisearch) Search(start int, searchkey string) (found bool, position int
 	if querylen == 0 {
 		return false, 0, 0
 	}
-	searchbytes := make([]byte, len(searchkey))
-	for i := 0; i < len(searchkey); i++ {
-		searchbytes[i] = searchkey[i] - '0'
+	searchbytes := searchKeyToBytes(searchkey)
+
+	if querylen <= seqThresh {
+		nMatches = p.countByteKey(searchbytes)
 	}
 
 	if querylen == 1 {
-		return p.seqsearch1(start, searchbytes)
+		found, position, _ = p.seqsearch1(start, searchbytes)
 	} else if querylen <= seqThresh {
-		return p.seqsearch(start, searchbytes)
+		found, position, _ = p.seqsearch(start, searchbytes)
+	} else {
+		found, position, nMatches = p.idxsearch(start, searchbytes)
 	}
-	return p.idxsearch(start, searchbytes)
+	return
 }
 
 // Summary of speed improvements not taken from the C++ version:
 // Optimized binary search that takes advantage of the uniform
 // distribution of numbers (1/2 as many comparisons)
-// two-digit-at-a-time comparisons;
-// unrolled first few digit comparisons beyond first digit;
 // mapping the index directly as uint32s (pins endian-ness);
 // not invoking a full sort for finding the match;
 //

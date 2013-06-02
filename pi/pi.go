@@ -2,10 +2,10 @@ package main
 
 import (
 	"flag"
-	"github.com/dave-andersen/pisearch/pisearch"
-	"strconv"
 	"fmt"
+	"github.com/dave-andersen/pisearch/pisearch"
 	"log"
+	"strconv"
 )
 
 const (
@@ -40,7 +40,6 @@ func main() {
 	}
 	p.Close()
 }
-
 
 func do_search(p *pisearch.Pisearch) {
 	if flag.NArg() < 2 {

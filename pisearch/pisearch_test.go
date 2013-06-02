@@ -13,7 +13,12 @@ const (
 	maxSearch = 10000000
 )
 
-func openPiOrDie(t *testing.T) *Pisearch {
+// Needed to avoid duplicating openPiOrDie
+type hasFatal interface {
+	Fatalf(format string, args ...interface{})
+}
+
+func openPiOrDie(t hasFatal) *Pisearch {
 	if psCached != nil {
 		return psCached
 	}
@@ -35,33 +40,37 @@ func TestDigitAt(t *testing.T) {
 	}
 }
 
-type digitTest struct {
-	pos    int
-	result string
-}
-
-var digitTests []digitTest = []digitTest{
-	{0, "1415"},
-	{1, "4159"},
+var searchTests = []struct {
+	str   string
+	start int
+	found bool
+	pos   int
+}{
+	{"1", 0, true, 0},
+	{"4", 0, true, 1},
+	{"14", 0, true, 0},
+	{"41", 0, true, 1},
+	{"1415", 0, true, 0},
+	{"14159", 0, true, 0},
 }
 
 func TestGetDigits(t *testing.T) {
 	pi := openPiOrDie(t)
 
-	for i, searchfor := range digitTests {
-		if d := pi.GetDigits(searchfor.pos, len(searchfor.result)); d != searchfor.result {
-			t.Fatalf("GetDigits(%d): %s, wanted %s", i, d, searchfor.result)
+	for i, searchfor := range searchTests {
+		if searchfor.found == true {
+			if d := pi.GetDigits(searchfor.pos, len(searchfor.str)); d != searchfor.str {
+				t.Fatalf("GetDigits(%d): %s, wanted %s", i, d, searchfor.pos)
+			}
 		}
 	}
 }
 
-type compareTest struct {
+var compareTests = []struct {
 	pos       int
 	compareto []byte
 	result    int
-}
-
-var compareTests []compareTest = []compareTest{
+}{
 	{0, []byte{1, 4, 1, 5}, 0},
 	{0, []byte{1, 4, 1, 2}, 1},
 	{0, []byte{1, 4, 1, 7}, -1},
@@ -78,20 +87,17 @@ func TestCompare(t *testing.T) {
 
 }
 
-func openPiOrDieBench(b *testing.B) *Pisearch {
-	if psCached != nil {
-		return psCached
+func TestSearch(t *testing.T) {
+	pi := openPiOrDie(t)
+	for i, c := range searchTests {
+		if f, p, _ := pi.Search(c.start, c.str); f != c.found || p != c.pos {
+			t.Fatalf("Search(%d) for %s result %s %d\n", i, c.str, f, p)
+		}
 	}
-	pi, err := Open(piFile)
-	if err != nil {
-		b.Fatalf("Could not open Pi")
-	}
-	psCached = pi
-	return pi
 }
 
 func BenchmarkPisearch(b *testing.B) {
-	pi := openPiOrDieBench(b)
+	pi := openPiOrDie(b)
 	for i := 0; i < b.N; i++ {
 		n := int(rand.Int31n(maxSearch))
 		pi.Search(0, strconv.Itoa(n))
