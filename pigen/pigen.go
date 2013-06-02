@@ -15,10 +15,15 @@ package main
 import (
 	"flag"
 	"fmt"
-	"math/big"
-	"strconv"
 	"github.com/cznic/mathutil" // gives us sqrt
+	"log"
+	"math/big"
+	"os"
+	"runtime/pprof"
+	"strconv"
 )
+
+var cpuprofile = flag.String("cpuprofile", "", "write CPU profile to file")
 
 func main() {
 	flag.Parse()
@@ -30,10 +35,20 @@ func main() {
 	if err != nil {
 		fmt.Println("digits must be an integer count")
 	}
+
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}
+
 	n += 1 // We skip the 3...
 	// Compute a few more digits - the trailing end is wrong otherwise
 	// at low precision counts
-	pi := chudPi(int64(n+5))
+	pi := chudPi(int64(n + 5))
 	pistr := pi.String()[1:n] // skip the 3.
 	fmt.Println(pistr)
 }
@@ -52,8 +67,8 @@ func chudPi(n int64) *big.Int {
 		//fmt.Println("bs ", a, b)
 		Pab, Qab, Tab := big.NewInt(1), big.NewInt(1), big.NewInt(0)
 		bminusa := big.NewInt(0).Sub(b, a)
-		if (one.Cmp(bminusa) == 0) {
-			if (zero.Cmp(a) != 0) {
+		if one.Cmp(bminusa) == 0 {
+			if zero.Cmp(a) != 0 {
 				sixa := big.NewInt(0).Mul(a, six)
 				Pab.Sub(sixa, one)
 				sixa.Sub(sixa, five)
@@ -92,7 +107,7 @@ func chudPi(n int64) *big.Int {
 	startB := big.NewInt(n/DigitsPerTerm + 1)
 
 	_, q, t := bs(big.NewInt(0), startB)
-	
+
 	tmp := big.NewInt(10005)
 	tmp.Mul(tmp, onebase)
 	tmp.Mul(tmp, onebase) // tmp = 10005*onebase^2
