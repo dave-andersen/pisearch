@@ -2,16 +2,23 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/dave-andersen/pisearch/pisearch"
 	"io"
 	"log"
 	"net/http"
-	"github.com/dave-andersen/pisearch/pisearch"
+	"os"
 	"strconv"
+	"syscall"
 	"time"
 )
 
 const (
-	pifile = "pi1m"
+	pifile  = "pi1m"
+	LOGFILE = "/local/logs/pi/pilog"
+)
+
+var (
+	logfile *os.File
 )
 
 // Return codes for JSON.  Shouldn't we use a standard, though?
@@ -31,6 +38,7 @@ type SearchResponse struct {
 
 type Piserver struct {
 	searcher *pisearch.Pisearch
+	logfile  *os.File
 }
 
 type jsonhandler func(*http.Request, map[string]interface{})
@@ -46,7 +54,8 @@ func (handler jsonhandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/javascript")
-	results["elapsedTime"] = time.Now().Sub(startTime)
+	tn := time.Now()
+	results["elapsedTime"] = tn.Sub(startTime)
 	//b, err := json.MarshalIndent(results, "", "  ")
 	b, err := json.Marshal(results)
 	if err != nil {
@@ -55,6 +64,14 @@ func (handler jsonhandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	if b != nil {
 		io.WriteString(w, string(b))
+	}
+	if logfile != nil {
+		results["queryTime"] = tn.UnixNano()
+		b, err := json.Marshal(results)
+		if err == nil {
+			bstr := string(b)
+			logfile.WriteString(bstr + "\n")
+		}
 	}
 }
 
@@ -140,7 +157,11 @@ func main() {
 	if err != nil {
 		log.Fatal("Could not open ", pifile, ": ", err)
 	}
-	server := &Piserver{pisearch}
+	logfile, err = os.OpenFile(LOGFILE, syscall.O_RDWR|syscall.O_CREAT, 0644)
+	if err != nil {
+		logfile = nil
+	}
+	server := &Piserver{pisearch, logfile}
 	http.Handle("/piquery",
 		jsonhandler(func(req *http.Request, respmap map[string]interface{}) {
 			server.ServeQuery(req, respmap)
