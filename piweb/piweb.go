@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	pifile  = "pi1m"
+	pifile  = "/home/dga/public_html/pi/pi200"
 	LOGFILE = "/local/logs/pi/pilog"
 )
 
@@ -34,6 +34,7 @@ type SearchResponse struct {
 	Position     int    `json:"p":`
 	DigitsBefore string `json:"db"`
 	DigitsAfter  string `json:"da"`
+	Count        int    `json:"c"`
 }
 
 type Piserver struct {
@@ -135,7 +136,7 @@ func (ps *Piserver) ServeQuery(req *http.Request, results map[string]interface{}
 		if start_pos > 0 {
 			start_pos -= 1
 		}
-		found, pos, _ := ps.searcher.Search(start_pos, query)
+		found, pos, nMatches := ps.searcher.Search(start_pos, query)
 		if found {
 			digitBeforeStart := pos - 20
 			if digitBeforeStart < 0 {
@@ -143,6 +144,7 @@ func (ps *Piserver) ServeQuery(req *http.Request, results map[string]interface{}
 			}
 			r.Status = "found"
 			r.Position = pos + 1 // 1 based indexing for humans
+			r.Count = nMatches
 			r.DigitsBefore = ps.searcher.GetDigits(digitBeforeStart, pos-digitBeforeStart)
 			r.DigitsAfter = ps.searcher.GetDigits(pos+len(query), 20)
 		} else {
