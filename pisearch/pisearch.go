@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	seqThresh = 6 // Search strings >= seqThresh digits long use the index.
+	seqThresh = 4 // Search strings >= seqThresh digits long use the index.
 )
 
 type Pisearch struct {
@@ -206,11 +206,11 @@ func (p *Pisearch) Count(searchkey string) int {
 
 func (p *Pisearch) idxsearch(start int, searchkey []byte) (found bool, position int, nMatches int) {
 
-	start, end := p.idxrange(searchkey)
-	nMatches = (end - start)
+	foundstart, foundend := p.idxrange(searchkey)
+	nMatches = (foundend - foundstart)
 	positions := make([]int, nMatches)
 	for i := 0; i < nMatches; i++ {
-		positions[i] = p.idxAt(i + start)
+		positions[i] = p.idxAt(i + foundstart)
 	}
 	if nMatches > 1 {
 		sort.Ints(positions)

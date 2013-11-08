@@ -13,7 +13,7 @@ const (
 	MODE_ANALYZE
 )
 const (
-	PIFILE_DEFAULT = "pi1m"
+	PIFILE_DEFAULT = "/home/dga/public_html/pi/pi200"
 )
 
 var piFile = flag.String("pifile", PIFILE_DEFAULT, "what pi base file to use")
