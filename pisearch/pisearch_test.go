@@ -9,7 +9,8 @@ import (
 var psCached *Pisearch
 
 const (
-	piFile    = "pi1m"
+	piFile    = "/home/dga/public_html/pi/pi200"
+//pi1m"
 	maxSearch = 10000000
 )
 
@@ -52,6 +53,8 @@ var searchTests = []struct {
 	{"41", 0, true, 1},
 	{"1415", 0, true, 0},
 	{"14159", 0, true, 0},
+	{"856672", 0, true, 9999},
+	{"8566722", 0, true, 9999},
 }
 
 func TestGetDigits(t *testing.T) {
