@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	seqThresh = 4 // Search strings >= seqThresh digits long use the index.
+	seqThresh = 6 // Search strings >= seqThresh digits long use the index.
 )
 
 type Pisearch struct {
