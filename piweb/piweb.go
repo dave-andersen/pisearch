@@ -13,8 +13,9 @@ import (
 )
 
 const (
-	pifile  = "/home/dga/public_html/pi/pi200"
-	LOGFILE = "/local/logs/pi/pilog"
+	pifile                  = "/home/dga/public_html/pi/pi200"
+	LOGFILE                 = "/local/logs/pi/pilog"
+	MAX_QUERIES_PER_REQUEST = 20
 )
 
 var (
@@ -112,7 +113,7 @@ func (ps *Piserver) ServeQuery(req *http.Request, results map[string]interface{}
 		return
 	}
 
-	if len(q) > 20 {
+	if len(q) > MAX_QUERIES_PER_REQUEST {
 		results["status"] = STATUS_FAILED
 		results["error"] = "Too many queries"
 		return
