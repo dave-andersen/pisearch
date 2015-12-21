@@ -205,21 +205,21 @@ func (p *Pisearch) Count(searchkey string) int {
 }
 
 func (p *Pisearch) idxsearch(start int, searchkey []byte) (found bool, position int, nMatches int) {
-
 	foundstart, foundend := p.idxrange(searchkey)
 	nMatches = (foundend - foundstart)
-	positions := make([]int, nMatches)
-	for i := 0; i < nMatches; i++ {
-		positions[i] = p.idxAt(i + foundstart)
-	}
-	if nMatches > 1 {
-		sort.Ints(positions)
-	}
 
-	for _, pos := range positions {
+	best := -1
+
+	for i := 0; i < nMatches; i++ {
+		pos := p.idxAt(i + foundstart)
 		if pos >= start {
-			return true, pos, nMatches
+			if best == -1 || pos < best {
+				best = pos
+			}
 		}
+	}
+	if best != -1 {
+		return true, best, nMatches
 	}
 	return false, 0, 0
 }
