@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	seqThresh = 6 // Search strings >= seqThresh digits long use the index.
+	seqThresh = 4 // Search strings > seqThresh digits long use the index.
 )
 
 type Pisearch struct {
@@ -122,33 +122,42 @@ func (p *Pisearch) GetDigits(start int, length int) (digits string) {
 	return string(res)
 }
 
-func (p *Pisearch) seqsearch(start int, searchkey []byte) (found bool, position int, nMatches int) {
+func (p *Pisearch) seqsearch3(start int, searchkey []byte) (found bool, position int, nMatches int) {
 	maxPos := p.numDigits - len(searchkey)
-	doub := (searchkey[0] << 4) | searchkey[1]
-	for position = start; position < maxPos; position++ {
+	doub := (searchkey[0] << 4) | searchkey[1]  // First two digits
+	doub2 := (searchkey[1] << 4) | searchkey[2] // Second two digits
+
+	position = start
+
+	if (position & 1) == 0 {
 		b := p.piMap[position/2]
-		cmp := false
-		if (position & 0x01) == 0 { // Second digit in a byte
-			cmp = (b == doub)
-		} else {
-			cmp = ((b & 0x0f) == searchkey[0])
+		if (b == doub) && p.compare(position, searchkey) == 0 {
+			return true, position, 0
 		}
-		if cmp {
-			if p.compare(position, searchkey) == 0 {
-				return true, position, 0
-			}
+		position++
+	}
+
+	for ; position < maxPos; position += 2 {
+		b := p.piMap[(position+1)/2]
+		if (b == doub2) && p.compare(position, searchkey) == 0 {
+			return true, position, 0
+		}
+		if (b == doub) && p.compare(position+1, searchkey) == 0 {
+			return true, position+1, 0
 		}
 	}
 	// End of Pi
 	return false, 0, 0
 }
 
-// Only for search keys of length 1...
-func (p *Pisearch) seqsearch1(start int, searchkey []byte) (found bool, position int, nMatches int) {
-	maxPos := p.numDigits - 1
+// Only for search keys of length 1 and 2...
+func (p *Pisearch) seqsearch1or2(start int, searchkey []byte) (found bool, position int, nMatches int) {
+	maxPos := p.numDigits - len(searchkey)
 	for position = start; position < maxPos; position++ {
 		if p.digitAt(position) == searchkey[0] {
-			return true, position, 0
+			if len(searchkey) == 1 || p.digitAt(position+1) == searchkey[1] {
+				return true, position, 0
+			}
 		}
 	}
 	// End of Pi
@@ -249,10 +258,10 @@ func (p *Pisearch) Search(start int, searchkey string) (found bool, position int
 		nMatches = p.countByteKey(searchbytes)
 	}
 
-	if querylen == 1 {
-		found, position, _ = p.seqsearch1(start, searchbytes)
+	if querylen <= 2 {
+		found, position, _ = p.seqsearch1or2(start, searchbytes)
 	} else if querylen <= seqThresh {
-		found, position, _ = p.seqsearch(start, searchbytes)
+		found, position, _ = p.seqsearch3(start, searchbytes)
 	} else {
 		found, position, nMatches = p.idxsearch(start, searchbytes)
 	}
@@ -263,7 +272,6 @@ func (p *Pisearch) Search(start int, searchkey string) (found bool, position int
 // Optimized binary search that takes advantage of the uniform
 // distribution of numbers (1/2 as many comparisons)
 // mapping the index directly as uint32s (pins endian-ness);
-// not invoking a full sort for finding the match;
 //
 // From benchmarking, it's likely that the most profitable next optimization
 // is distribution-based search if we ever care. :-)
