@@ -105,7 +105,6 @@ func (ps *Piserver) ServeDigits(req *http.Request, results map[string]interface{
 func (ps *Piserver) ServeQuery(req *http.Request, results map[string]interface{}) {
 	// results["status"] = ...
 	// results["results"] = [ [result1], [result2], ... ]
-	results["status"] = "OK"
 	q, has_q := req.Form["q"]
 	if !has_q {
 		results["status"] = STATUS_FAILED
@@ -120,8 +119,7 @@ func (ps *Piserver) ServeQuery(req *http.Request, results map[string]interface{}
 	}
 
 	start_pos := 0
-	start, has_start := req.Form["qs"]
-	if has_start {
+	if start, has_start := req.Form["qs"]; has_start {
 		sp, err := strconv.Atoi(start[0])
 		if err != nil {
 			results["status"] = STATUS_FAILED
@@ -131,6 +129,7 @@ func (ps *Piserver) ServeQuery(req *http.Request, results map[string]interface{}
 		start_pos = int(sp)
 	}
 	resarray := make([]SearchResponse, len(q))
+	results["status"] = "OK"
 	results["results"] = resarray
 	for idx, query := range q {
 		r := SearchResponse{SearchKey: query, Start: start_pos}
