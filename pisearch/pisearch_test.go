@@ -36,7 +36,7 @@ func TestDigitAt(t *testing.T) {
 
 	for i, wanted := range []byte{1, 4, 1, 5} {
 		if d := pi.digitAt(i); d != wanted {
-			t.Fatalf("digitAt(%d): %s, wanted %s", i, d, wanted)
+			t.Fatalf("digitAt(%d): %d, wanted %d", i, int(d), int(wanted))
 		}
 	}
 }
@@ -65,7 +65,7 @@ func TestGetDigits(t *testing.T) {
 	for i, searchfor := range searchTests {
 		if searchfor.found == true {
 			if d := pi.GetDigits(searchfor.pos, len(searchfor.str)); d != searchfor.str {
-				t.Fatalf("GetDigits(%d): %s, wanted %s", i, d, searchfor.pos)
+				t.Fatalf("GetDigits(%d): %s, wanted %s", i, d, searchfor.str)
 			}
 		}
 	}
@@ -96,7 +96,7 @@ func TestSearch(t *testing.T) {
 	pi := openPiOrDie(t)
 	for i, c := range searchTests {
 		if f, p, _ := pi.Search(c.start, c.str); f != c.found || p != c.pos {
-			t.Fatalf("Search(%d) for %s result %s %d\n", i, c.str, f, p)
+			t.Fatalf("Search(%d) for %s result %t %d\n", i, c.str, f, p)
 		}
 	}
 }
