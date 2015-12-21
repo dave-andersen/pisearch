@@ -265,6 +265,5 @@ func (p *Pisearch) Search(start int, searchkey string) (found bool, position int
 // mapping the index directly as uint32s (pins endian-ness);
 // not invoking a full sort for finding the match;
 //
-// From benchmarking, it's likely that the most profitable optimizations
-// are distribution-based search and eliminating the call to integer sort,
-// if we ever care. :-)
+// From benchmarking, it's likely that the most profitable next optimization
+// is distribution-based search if we ever care. :-)
