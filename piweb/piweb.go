@@ -1,13 +1,20 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"flag"
+	"fmt"
 	"github.com/dave-andersen/pisearch/pisearch"
+	"github.com/dustin/go-humanize"
 	"io"
+	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -20,6 +27,7 @@ const (
 
 var (
 	logfile *os.File
+	listenPort = flag.Int("p", 1415, "port to listen on")
 )
 
 // Return codes for JSON.  Shouldn't we use a standard, though?
@@ -154,7 +162,164 @@ func (ps *Piserver) ServeQuery(req *http.Request, results map[string]interface{}
 	}
 }
 
+// Strings for the LegacyServer, which imitates the old CGI interface.
+const (
+	ERRMSG_NO_SEARCH = "Please specify a search string\n"
+	ERRMSG_INVALID_SEARCH = "You can only search for digits (0-9), try again.<br />\n" +
+		"As an example, the search \"pi\" is invalid, but \n" +
+		"the search \"3232\" is perfectly OK.  Don't put in\n" +
+		"the quote marks, of course.  Searches can be up to 100 digits.\n"
+	ERRMSG_POS_TOO_FAR = "You can't start searching for something after the last digit of pi that we have!\n"
+	MAX_OUTPUT_LEN = 1000
+	MAX_SEARCH_LEN = 100
+	MY_URL = "http://www.angio.net/pi/bigpi.cgi"
+	FILE_DIR = "/home/dga/public_html/pi"
+	FOOT_DIR = "feet"
+	N_FEET = 4
+)
+
+var (
+	HeaderFileContents []byte
+	FooterFileContents [][]byte
+)
+
+func InitLegacy() {
+	var err error
+	HeaderFileContents, err = ioutil.ReadFile(FILE_DIR+"/pisearch.head.html")
+	if err != nil {
+		log.Fatal("Could not read pisearch head file in legacy")
+	}
+	FooterFileContents = make([][]byte, N_FEET)
+	for i := 0; i < N_FEET; i++ {
+		FooterFileContents[i], err = ioutil.ReadFile(fmt.Sprintf("%s/%s/%d.html",
+			FILE_DIR, FOOT_DIR, i))
+		if err != nil {
+			log.Fatal("Error reading footer file")
+		}
+	}
+		
+}
+
+func (ps *Piserver) ServeLegacy(w http.ResponseWriter, req *http.Request) {
+	if err := req.ParseForm(); err != nil {
+		io.WriteString(w, "Error parsing form submission: " + err.Error())
+		return
+	}
+	startTime := time.Now()
+	w.Header().Set("Content-Type", "text/html")
+	w.Write(HeaderFileContents)
+	
+
+	// Error handling
+	searchkey := strings.TrimSpace(req.FormValue("UsrQuery"))
+	startpos := strings.TrimSpace(req.FormValue("startpos"))
+	querytype := strings.TrimSpace(req.FormValue("querytype"))
+
+	if len(searchkey) == 0 {
+		LegacyError(w, ERRMSG_NO_SEARCH)
+		return
+	}
+	if len(searchkey) > MAX_SEARCH_LEN {
+		LegacyError(w, ERRMSG_INVALID_SEARCH)
+		return
+	}
+	for _, c := range searchkey {
+		if c < '0' || c > '9' {
+			LegacyError(w, ERRMSG_INVALID_SEARCH)
+			return
+		}
+	}
+	
+	startposd := 0
+	if len(startpos) > 0 {
+		var err error
+		startposd, err = strconv.Atoi(startpos)
+		if err != nil {
+			LegacyError(w, "Invalid start position;  must be a number")
+			return
+		}
+		// The legacy pi searcher deals in "human" 1-based indexing, unfortunately.
+		if startposd > 0 {
+			startposd -= 1
+		}
+		if (startposd >= ps.searcher.NumDigits()) {
+			LegacyError(w, "Start position greater than number of digits")
+			return
+		}
+	}
+	
+	if querytype == "substr" {
+		qlen, err := strconv.Atoi(searchkey)
+		if err != nil || qlen > MAX_OUTPUT_LEN ||
+			(startposd + qlen) > ps.searcher.NumDigits() {
+			LegacyError(w, "Invalid substring length and start")
+			return
+		}
+
+		s := fmt.Sprintf(
+			"<div id=\"showheader\"><h3>Pi from %d to %d</h3></div>" +
+			"<div id=\"showstring\"><p>",
+			startposd+1, startposd + qlen)
+		io.WriteString(w, s)
+		io.WriteString(w, ps.searcher.GetDigits(startposd, qlen))
+		io.WriteString(w, "</p></div>\n")
+	} else {
+		// Search
+		found, pos, _ := ps.searcher.Search(startposd, searchkey)
+		if !found {
+			io.WriteString(w, fmt.Sprintf("The string %s did not occur in the first %d digits " +
+				"of pi after position %d.<br />(Sorry!  Don't give up, Pi contains " +
+				"lots of other cool strings.)\n", searchkey, ps.searcher.NumDigits(),
+				startposd))
+		} else {
+			pos1commas := humanize.Comma(int64(pos+1))
+			s := fmt.Sprintf("The string <b>%s</b> occurs at position %s " +
+				"counting from the first digit after the decimal point." +
+				"The 3. is not counted.\n" +
+				"<form method=\"post\" action=\"%s\">\n" +
+				"<input type=\"hidden\" name=\"UsrQuery\" value=\"%s\">\n" +
+				"<input type=\"hidden\" name=\"startpos\" value=\"%d\">\n" +
+				"<input type=\"submit\" value=\"Find Next\">\n" +
+				"</form>\n" +
+				"<p>The string and surrounding digits:</p><p>\n",
+				searchkey, pos1commas, MY_URL, searchkey, pos+2)
+			io.WriteString(w, s)
+			if (pos <= 20) {
+				io.WriteString(w, ps.searcher.GetDigits(0, 20))
+			} else {
+				io.WriteString(w, ps.searcher.GetDigits(pos-20, 20))
+			}
+			io.WriteString(w, "<b>")
+			io.WriteString(w, ps.searcher.GetDigits(pos, len(searchkey)))
+			io.WriteString(w, "</b>")
+			io.WriteString(w, ps.searcher.GetDigits(pos+len(searchkey), 20))
+			io.WriteString(w, "</p>")
+		}
+	}
+				
+	endTime := time.Now()
+	elapsed := endTime.Sub(startTime)
+	// Put together the elapsed string, send it to PrintFooter
+	PrintFooter(w, elapsed.String())
+}
+
+func LegacyError(w http.ResponseWriter, errmsg string) {
+	io.WriteString(w, "<div class=\"errmsg\">"+errmsg+"</div>")
+	PrintFooter(w, "")
+}
+
+func PrintFooter(w http.ResponseWriter, procsec string) {
+	// Template substitute procsec into the footer template
+	// (if string is not empty)
+	w.Write(bytes.Replace(FooterFileContents[rand.Int() % N_FEET],
+		[]byte("PROCSEC"), []byte(procsec), -1))
+}
+
+
 func main() {
+	flag.Parse()
+	InitLegacy()
+
 	pisearch, err := pisearch.Open(pifile)
 	if err != nil {
 		log.Fatal("Could not open ", pifile, ": ", err)
@@ -172,8 +337,13 @@ func main() {
 		jsonhandler(func(req *http.Request, respmap map[string]interface{}) {
 			server.ServeDigits(req, respmap)
 		}))
+	http.HandleFunc("/bigpi.cgi",
+		func(w http.ResponseWriter, r *http.Request) {
+			server.ServeLegacy(w, r)
+		})
 
-	werr := http.ListenAndServe(":1415", nil)
+	listenPortString := fmt.Sprintf(":%d", *listenPort)
+	werr := http.ListenAndServe(listenPortString, nil)
 	if werr != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
