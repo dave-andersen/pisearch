@@ -209,8 +209,6 @@ func (ps *Piserver) ServeLegacy(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "text/html")
 	w.Write(HeaderFileContents)
 	
-
-	// Error handling
 	searchkey := strings.TrimSpace(req.FormValue("UsrQuery"))
 	startpos := strings.TrimSpace(req.FormValue("startpos"))
 	querytype := strings.TrimSpace(req.FormValue("querytype"))
@@ -242,6 +240,10 @@ func (ps *Piserver) ServeLegacy(w http.ResponseWriter, req *http.Request) {
 		if startposd > 0 {
 			startposd -= 1
 		}
+		if (startposd < 0) {
+			LegacyError(w, "Can't start at a negative position")
+			return
+		}
 		if (startposd >= ps.searcher.NumDigits()) {
 			LegacyError(w, "Start position greater than number of digits")
 			return
@@ -256,21 +258,24 @@ func (ps *Piserver) ServeLegacy(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		s := fmt.Sprintf(
-			"<div id=\"showheader\"><h3>Pi from %d to %d</h3></div>" +
-			"<div id=\"showstring\"><p>",
-			startposd+1, startposd + qlen)
-		io.WriteString(w, s)
+		io.WriteString(w, "<div id=\"showheader\"><h3>Pi from ")
+		io.WriteString(w, strconv.Itoa(startposd+1))
+		io.WriteString(w, " to ")
+		io.WriteString(w, strconv.Itoa(startposd+qlen))
+		io.WriteString(w, "</h3></div><div id=\"showstring\"><p>")
 		io.WriteString(w, ps.searcher.GetDigits(startposd, qlen))
 		io.WriteString(w, "</p></div>\n")
 	} else {
 		// Search
 		found, pos, _ := ps.searcher.Search(startposd, searchkey)
 		if !found {
-			io.WriteString(w, fmt.Sprintf("The string %s did not occur in the first %d digits " +
-				"of pi after position %d.<br />(Sorry!  Don't give up, Pi contains " +
-				"lots of other cool strings.)\n", searchkey, ps.searcher.NumDigits(),
-				startposd))
+			io.WriteString(w, "The string ")
+			io.WriteString(w, searchkey)
+			io.WriteString(w, " did not occur in the first ")
+			io.WriteString(w, strconv.Itoa(ps.searcher.NumDigits()))
+			io.WriteString(w, " digits of pi after position ")
+			io.WriteString(w, strconv.Itoa(startposd))
+			io.WriteString(w, ".<br />(Sorry!  Don't give up, Pi contains lots of other cool strings.)\n")
 		} else {
 			pos1commas := humanize.Comma(int64(pos+1))
 			s := fmt.Sprintf("The string <b>%s</b> occurs at position %s " +
@@ -296,10 +301,9 @@ func (ps *Piserver) ServeLegacy(w http.ResponseWriter, req *http.Request) {
 			io.WriteString(w, "</p>")
 		}
 	}
-				
+	
 	endTime := time.Now()
 	elapsed := endTime.Sub(startTime)
-	// Put together the elapsed string, send it to PrintFooter
 	PrintFooter(w, elapsed.String())
 }
 
@@ -310,7 +314,6 @@ func LegacyError(w http.ResponseWriter, errmsg string) {
 
 func PrintFooter(w http.ResponseWriter, procsec string) {
 	// Template substitute procsec into the footer template
-	// (if string is not empty)
 	w.Write(bytes.Replace(FooterFileContents[rand.Int() % N_FEET],
 		[]byte("PROCSEC"), []byte(procsec), -1))
 }

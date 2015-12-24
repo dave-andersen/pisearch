@@ -55,6 +55,10 @@ func openAndMap(name string) (file *os.File, fi os.FileInfo, mapped []byte, err 
 	return
 }
 
+func (p *Pisearch) NumDigits() int {
+	return p.numDigits
+}
+
 // Open returns a pisearch object that references the two files
 // name.4.idx and name.4.bin, or error if the files could not
 // be opened and memory mapped.
