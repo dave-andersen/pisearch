@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -13,6 +12,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 	"syscall"
@@ -180,24 +180,28 @@ const (
 
 var (
 	HeaderFileContents []byte
-	FooterFileContents [][]byte
+	FooterFileStart []string
+	FooterFileEnd []string
 )
 
 func InitLegacy() {
 	var err error
-	HeaderFileContents, err = ioutil.ReadFile(FILE_DIR+"/pisearch.head.html")
+	HeaderFileContents, err = ioutil.ReadFile(path.Join(FILE_DIR, "pisearch.head.html"))
 	if err != nil {
 		log.Fatal("Could not read pisearch head file in legacy")
 	}
-	FooterFileContents = make([][]byte, N_FEET)
+	FooterFileStart = make([]string, N_FEET)
+	FooterFileEnd = make([]string, N_FEET)
 	for i := 0; i < N_FEET; i++ {
-		FooterFileContents[i], err = ioutil.ReadFile(fmt.Sprintf("%s/%s/%d.html",
+		contents, err := ioutil.ReadFile(fmt.Sprintf("%s/%s/%d.html",
 			FILE_DIR, FOOT_DIR, i))
 		if err != nil {
 			log.Fatal("Error reading footer file")
 		}
+		splitbits := strings.SplitN(string(contents), "PROCSEC", 2)
+		FooterFileStart[i] = splitbits[0]
+		FooterFileEnd[i] = splitbits[1]
 	}
-		
 }
 
 func (ps *Piserver) ServeLegacy(w http.ResponseWriter, req *http.Request) {
@@ -278,7 +282,7 @@ func (ps *Piserver) ServeLegacy(w http.ResponseWriter, req *http.Request) {
 			io.WriteString(w, ".<br />(Sorry!  Don't give up, Pi contains lots of other cool strings.)\n")
 		} else {
 			pos1commas := humanize.Comma(int64(pos+1))
-			s := fmt.Sprintf("The string <b>%s</b> occurs at position %s " +
+			fmt.Fprintf(w, "The string <b>%s</b> occurs at position %s " +
 				"counting from the first digit after the decimal point." +
 				"The 3. is not counted.\n" +
 				"<form method=\"post\" action=\"%s\">\n" +
@@ -288,7 +292,6 @@ func (ps *Piserver) ServeLegacy(w http.ResponseWriter, req *http.Request) {
 				"</form>\n" +
 				"<p>The string and surrounding digits:</p><p>\n",
 				searchkey, pos1commas, MY_URL, searchkey, pos+2)
-			io.WriteString(w, s)
 			if (pos <= 20) {
 				io.WriteString(w, ps.searcher.GetDigits(0, 20))
 			} else {
@@ -308,14 +311,18 @@ func (ps *Piserver) ServeLegacy(w http.ResponseWriter, req *http.Request) {
 }
 
 func LegacyError(w http.ResponseWriter, errmsg string) {
-	io.WriteString(w, "<div class=\"errmsg\">"+errmsg+"</div>")
+	io.WriteString(w, "<div class=\"errmsg\">")
+	io.WriteString(w, errmsg)
+	io.WriteString(w, "</div>")
 	PrintFooter(w, "")
 }
 
 func PrintFooter(w http.ResponseWriter, procsec string) {
 	// Template substitute procsec into the footer template
-	w.Write(bytes.Replace(FooterFileContents[rand.Int() % N_FEET],
-		[]byte("PROCSEC"), []byte(procsec), -1))
+	footerFile := rand.Int() % N_FEET
+	io.WriteString(w, FooterFileStart[footerFile])
+	io.WriteString(w, procsec)
+	io.WriteString(w, FooterFileEnd[footerFile])
 }
 
 

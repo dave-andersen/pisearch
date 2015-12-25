@@ -47,7 +47,8 @@ func openAndMap(name string) (file *os.File, fi os.FileInfo, mapped []byte, err 
 		log.Println("stat of", name, "failed")
 		return
 	}
-	mapped, err = syscall.Mmap(int(file.Fd()), 0, int(fi.Size()), syscall.PROT_READ, syscall.MAP_PRIVATE)
+	mapped, err = syscall.Mmap(int(file.Fd()), 0, int(fi.Size()),
+		syscall.PROT_READ, syscall.MAP_PRIVATE | syscall.MAP_POPULATE)
 	if err != nil {
 		file.Close()
 		log.Println("mmap of ", name, "failed:", err)
