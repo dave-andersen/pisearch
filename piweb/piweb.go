@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"github.com/dave-andersen/pisearch/pisearch"
 	"github.com/dustin/go-humanize"
+	"github.com/nytimes/gziphandler"
+	"github.com/rs/cors"
 	"io"
 	"io/ioutil"
 	"log"
@@ -40,7 +42,7 @@ type SearchResponse struct {
 	SearchKey    string `json:"k"`
 	Start        int    `json:"st"`
 	Status       string `json:"status"`
-	Position     int    `json:"p":`
+	Position     int    `json:"p"`
 	DigitsBefore string `json:"db"`
 	DigitsAfter  string `json:"da"`
 	Count        int    `json:"c"`
@@ -65,7 +67,7 @@ func (handler jsonhandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	w.Header().Set("Content-Type", "text/javascript")
 	tn := time.Now()
-	results["elapsedTime"] = tn.Sub(startTime)
+	results["et"] = tn.Sub(startTime)
 	//b, err := json.MarshalIndent(results, "", "  ")
 	b, err := json.Marshal(results)
 	if err != nil {
@@ -76,7 +78,7 @@ func (handler jsonhandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		io.WriteString(w, string(b))
 	}
 	if logfile != nil {
-		results["queryTime"] = tn.UnixNano()
+		results["qt"] = tn.UnixNano()
 		b, err := json.Marshal(results)
 		if err == nil {
 			bstr := string(b)
@@ -138,7 +140,7 @@ func (ps *Piserver) ServeQuery(req *http.Request, results map[string]interface{}
 	}
 	resarray := make([]SearchResponse, len(q))
 	results["status"] = "OK"
-	results["results"] = resarray
+	results["r"] = resarray
 	for idx, query := range q {
 		r := SearchResponse{SearchKey: query, Start: start_pos}
 		if start_pos > 0 {
@@ -339,21 +341,29 @@ func main() {
 		logfile = nil
 	}
 	server := &Piserver{pisearch, logfile}
-	http.Handle("/piquery",
+	mux := http.NewServeMux()
+	mux.Handle("/piquery",
 		jsonhandler(func(req *http.Request, respmap map[string]interface{}) {
 			server.ServeQuery(req, respmap)
 		}))
-	http.Handle("/pidigits",
+	mux.Handle("/pidigits",
 		jsonhandler(func(req *http.Request, respmap map[string]interface{}) {
 			server.ServeDigits(req, respmap)
 		}))
-	http.HandleFunc("/bigpi.cgi",
+	handleBigPi := http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			server.ServeLegacy(w, r)
 		})
+	mux.Handle("/bigpi.cgi", gziphandler.GzipHandler(handleBigPi))
+
+	c := cors.New(cors.Options{
+		AllowedOrigins: []string{"http://angio.net", "http://www.angio.net",
+			"https://angio.net", "https://www.angio.net"},
+	})
+	handler := c.Handler(mux)
 
 	listenPortString := fmt.Sprintf(":%d", *listenPort)
-	werr := http.ListenAndServe(listenPortString, nil)
+	werr := http.ListenAndServe(listenPortString, handler)
 	if werr != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
