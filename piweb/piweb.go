@@ -4,10 +4,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/dave-andersen/pisearch/pisearch"
-	"github.com/dustin/go-humanize"
-	"github.com/nytimes/gziphandler"
-	"github.com/rs/cors"
 	"io"
 	"io/ioutil"
 	"log"
@@ -19,6 +15,11 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/dave-andersen/pisearch/pisearch"
+	"github.com/dustin/go-humanize"
+	"github.com/nytimes/gziphandler"
+	"github.com/rs/cors"
 )
 
 const (
@@ -28,7 +29,7 @@ const (
 )
 
 var (
-	logfile *os.File
+	logfile    *os.File
 	listenPort = flag.Int("p", 1415, "port to listen on")
 )
 
@@ -166,24 +167,24 @@ func (ps *Piserver) ServeQuery(req *http.Request, results map[string]interface{}
 
 // Strings for the LegacyServer, which imitates the old CGI interface.
 const (
-	ERRMSG_NO_SEARCH = "Please specify a search string\n"
+	ERRMSG_NO_SEARCH      = "Please specify a search string\n"
 	ERRMSG_INVALID_SEARCH = "You can only search for digits (0-9), try again.<br />\n" +
 		"As an example, the search \"pi\" is invalid, but \n" +
 		"the search \"3232\" is perfectly OK.  Don't put in\n" +
 		"the quote marks, of course.  Searches can be up to 100 digits.\n"
 	ERRMSG_POS_TOO_FAR = "You can't start searching for something after the last digit of pi that we have!\n"
-	MAX_OUTPUT_LEN = 1000
-	MAX_SEARCH_LEN = 100
-	MY_URL = "http://www.angio.net/pi/bigpi.cgi"
-	FILE_DIR = "/home/dga/public_html/pi"
-	FOOT_DIR = "feet"
-	N_FEET = 4
+	MAX_OUTPUT_LEN     = 1000
+	MAX_SEARCH_LEN     = 100
+	MY_URL             = "http://www.angio.net/pi/bigpi.cgi"
+	FILE_DIR           = "/home/dga/public_html/pi"
+	FOOT_DIR           = "feet"
+	N_FEET             = 4
 )
 
 var (
 	HeaderFileContents []byte
-	FooterFileStart []string
-	FooterFileEnd []string
+	FooterFileStart    []string
+	FooterFileEnd      []string
 )
 
 func InitLegacy() {
@@ -208,13 +209,13 @@ func InitLegacy() {
 
 func (ps *Piserver) ServeLegacy(w http.ResponseWriter, req *http.Request) {
 	if err := req.ParseForm(); err != nil {
-		io.WriteString(w, "Error parsing form submission: " + err.Error())
+		io.WriteString(w, "Error parsing form submission: "+err.Error())
 		return
 	}
 	startTime := time.Now()
 	w.Header().Set("Content-Type", "text/html")
 	w.Write(HeaderFileContents)
-	
+
 	searchkey := strings.TrimSpace(req.FormValue("UsrQuery"))
 	startpos := strings.TrimSpace(req.FormValue("startpos"))
 	querytype := strings.TrimSpace(req.FormValue("querytype"))
@@ -233,7 +234,7 @@ func (ps *Piserver) ServeLegacy(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 	}
-	
+
 	startposd := 0
 	if len(startpos) > 0 {
 		var err error
@@ -246,20 +247,20 @@ func (ps *Piserver) ServeLegacy(w http.ResponseWriter, req *http.Request) {
 		if startposd > 0 {
 			startposd -= 1
 		}
-		if (startposd < 0) {
+		if startposd < 0 {
 			LegacyError(w, "Can't start at a negative position")
 			return
 		}
-		if (startposd >= ps.searcher.NumDigits()) {
+		if startposd >= ps.searcher.NumDigits() {
 			LegacyError(w, "Start position greater than number of digits")
 			return
 		}
 	}
-	
+
 	if querytype == "substr" {
 		qlen, err := strconv.Atoi(searchkey)
 		if err != nil || qlen > MAX_OUTPUT_LEN ||
-			(startposd + qlen) > ps.searcher.NumDigits() {
+			(startposd+qlen) > ps.searcher.NumDigits() {
 			LegacyError(w, "Invalid substring length and start")
 			return
 		}
@@ -283,18 +284,18 @@ func (ps *Piserver) ServeLegacy(w http.ResponseWriter, req *http.Request) {
 			io.WriteString(w, strconv.Itoa(startposd))
 			io.WriteString(w, ".<br />(Sorry!  Don't give up, Pi contains lots of other cool strings.)\n")
 		} else {
-			pos1commas := humanize.Comma(int64(pos+1))
-			fmt.Fprintf(w, "The string <b>%s</b> occurs at position %s " +
-				"counting from the first digit after the decimal point." +
-				"The 3. is not counted.\n" +
-				"<form method=\"post\" action=\"%s\">\n" +
-				"<input type=\"hidden\" name=\"UsrQuery\" value=\"%s\">\n" +
-				"<input type=\"hidden\" name=\"startpos\" value=\"%d\">\n" +
-				"<input type=\"submit\" value=\"Find Next\">\n" +
-				"</form>\n" +
+			pos1commas := humanize.Comma(int64(pos + 1))
+			fmt.Fprintf(w, "The string <b>%s</b> occurs at position %s "+
+				"counting from the first digit after the decimal point."+
+				"The 3. is not counted.\n"+
+				"<form method=\"post\" action=\"%s\">\n"+
+				"<input type=\"hidden\" name=\"UsrQuery\" value=\"%s\">\n"+
+				"<input type=\"hidden\" name=\"startpos\" value=\"%d\">\n"+
+				"<input type=\"submit\" value=\"Find Next\">\n"+
+				"</form>\n"+
 				"<p>The string and surrounding digits:</p><p>\n",
 				searchkey, pos1commas, MY_URL, searchkey, pos+2)
-			if (pos <= 20) {
+			if pos <= 20 {
 				io.WriteString(w, ps.searcher.GetDigits(0, 20))
 			} else {
 				io.WriteString(w, ps.searcher.GetDigits(pos-20, 20))
@@ -306,7 +307,7 @@ func (ps *Piserver) ServeLegacy(w http.ResponseWriter, req *http.Request) {
 			io.WriteString(w, "</p>")
 		}
 	}
-	
+
 	endTime := time.Now()
 	elapsed := endTime.Sub(startTime)
 	PrintFooter(w, elapsed.String())
@@ -326,7 +327,6 @@ func PrintFooter(w http.ResponseWriter, procsec string) {
 	io.WriteString(w, procsec)
 	io.WriteString(w, FooterFileEnd[footerFile])
 }
-
 
 func main() {
 	flag.Parse()
