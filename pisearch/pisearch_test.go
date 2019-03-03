@@ -116,3 +116,12 @@ func BenchmarkPisearch(b *testing.B) {
 		pi.Search(0, strconv.Itoa(n))
 	}
 }
+
+func BenchmarkGetDigits(b *testing.B) {
+	pi := openPiOrDie(b)
+
+	for i := 0; i < b.N; i++ {
+		n := int(rand.Int31n(maxSearch))
+		_ = pi.GetDigits(n, 20)
+	}
+}

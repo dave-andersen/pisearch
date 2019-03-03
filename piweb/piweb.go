@@ -18,7 +18,7 @@ import (
 
 	"github.com/dave-andersen/pisearch/pisearch"
 	"github.com/dustin/go-humanize"
-	"github.com/nytimes/gziphandler"
+	"github.com/NYTimes/gziphandler"
 	"github.com/rs/cors"
 )
 
@@ -208,17 +208,17 @@ func InitLegacy() {
 }
 
 func (ps *Piserver) ServeLegacy(w http.ResponseWriter, req *http.Request) {
+	startTime := time.Now()
 	if err := req.ParseForm(); err != nil {
 		io.WriteString(w, "Error parsing form submission: "+err.Error())
 		return
 	}
-	startTime := time.Now()
 	w.Header().Set("Content-Type", "text/html")
 	w.Write(HeaderFileContents)
 
 	searchkey := strings.TrimSpace(req.FormValue("UsrQuery"))
 	startpos := strings.TrimSpace(req.FormValue("startpos"))
-	querytype := strings.TrimSpace(req.FormValue("querytype"))
+	querytype := req.FormValue("querytype")
 
 	if len(searchkey) == 0 {
 		LegacyError(w, ERRMSG_NO_SEARCH)
@@ -285,16 +285,20 @@ func (ps *Piserver) ServeLegacy(w http.ResponseWriter, req *http.Request) {
 			io.WriteString(w, ".<br />(Sorry!  Don't give up, Pi contains lots of other cool strings.)\n")
 		} else {
 			pos1commas := humanize.Comma(int64(pos + 1))
-			fmt.Fprintf(w, "The string <b>%s</b> occurs at position %s "+
-				"counting from the first digit after the decimal point."+
-				"The 3. is not counted.\n"+
-				"<form method=\"post\" action=\"%s\">\n"+
-				"<input type=\"hidden\" name=\"UsrQuery\" value=\"%s\">\n"+
-				"<input type=\"hidden\" name=\"startpos\" value=\"%d\">\n"+
-				"<input type=\"submit\" value=\"Find Next\">\n"+
+			io.WriteString(w, "The string <b>")
+			io.WriteString(w, searchkey)
+			io.WriteString(w, "</b> occurs at position ")
+			io.WriteString(w, pos1commas)
+			io.WriteString(w, " counting from the first digit after the decimal point. The 3. is not counted.\n"+
+				"<form method=\"post\" action=\"")
+			io.WriteString(w, MY_URL)
+			io.WriteString(w, "\"><input type=\"hidden\" name=\"UsrQuery\" value=\"")
+			io.WriteString(w, searchkey)
+			io.WriteString(w, "\"><input type=\"hidden\" name=\"startpos\" value=\"")
+			io.WriteString(w, strconv.Itoa(pos+2))
+			io.WriteString(w, "\"><input type=\"submit\" value=\"Find Next\">"+
 				"</form>\n"+
-				"<p>The string and surrounding digits:</p><p>\n",
-				searchkey, pos1commas, MY_URL, searchkey, pos+2)
+				"<p>The string and surrounding digits:</p><p>\n")
 			if pos <= 20 {
 				io.WriteString(w, ps.searcher.GetDigits(0, 20))
 			} else {

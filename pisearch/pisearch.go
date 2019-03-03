@@ -19,6 +19,7 @@ package pisearch
 import (
 	"encoding/binary"
 	"log"
+	"math"
 	"os"
 	"sort"
 	"syscall"
@@ -48,7 +49,7 @@ func openAndMap(name string) (file *os.File, fi os.FileInfo, mapped []byte, err 
 		return
 	}
 	mapped, err = syscall.Mmap(int(file.Fd()), 0, int(fi.Size()),
-		syscall.PROT_READ, syscall.MAP_PRIVATE | syscall.MAP_POPULATE)
+		syscall.PROT_READ, syscall.MAP_PRIVATE|syscall.MAP_POPULATE)
 	if err != nil {
 		file.Close()
 		log.Println("mmap of ", name, "failed:", err)
@@ -148,7 +149,7 @@ func (p *Pisearch) seqsearch3(start int, searchkey []byte) (found bool, position
 			return true, position, 0
 		}
 		if (b == doub) && p.compare(position+1, searchkey) == 0 {
-			return true, position+1, 0
+			return true, position + 1, 0
 		}
 	}
 	// End of Pi
@@ -222,17 +223,14 @@ func (p *Pisearch) idxsearch(start int, searchkey []byte) (found bool, position 
 	foundstart, foundend := p.idxrange(searchkey)
 	nMatches = (foundend - foundstart)
 
-	best := -1
+	best := math.MaxInt32
 
 	for i := 0; i < nMatches; i++ {
-		pos := p.idxAt(i + foundstart)
-		if pos >= start {
-			if best == -1 || pos < best {
-				best = pos
-			}
+		if pos := p.idxAt(i + foundstart); pos >= start && pos < best {
+			best = pos
 		}
 	}
-	if best != -1 {
+	if best != math.MaxInt32 {
 		return true, best, nMatches
 	}
 	return false, 0, 0
@@ -240,8 +238,8 @@ func (p *Pisearch) idxsearch(start int, searchkey []byte) (found bool, position 
 
 func searchKeyToBytes(key string) []byte {
 	searchbytes := make([]byte, len(key))
-	for i := 0; i < len(key); i++ {
-		searchbytes[i] = key[i] - '0'
+	for i, k := range([]byte(key)) {
+		searchbytes[i] = k - '0'
 	}
 	return searchbytes
 }
